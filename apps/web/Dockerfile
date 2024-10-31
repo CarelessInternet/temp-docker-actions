@@ -1,40 +1,38 @@
-FROM node:18-alpine AS base
+# src Dockerfile: https://github.com/vercel/turbo/blob/main/examples/with-docker/apps/web/Dockerfile
+FROM node:18-alpine AS alpine
 
-# This Dockerfile is copy-pasted into our main docs at /docs/handbook/deploying-with-docker.
-# Make sure you update both files!
-
-RUN --mount=type=cache,target=/root/.npm \
-    npm install -g pnpm@${PNPM_MAJOR_VERSION}
+# setup pnpm on the alpine base
+FROM alpine as base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+RUN pnpm install turbo --global
 
 FROM base AS builder
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk update
 RUN apk add --no-cache libc6-compat
-
+RUN apk update
 # Set working directory
 WORKDIR /app
-RUN pnpm add -g turbo@${TURBO_MAJOR_VERSION}
 COPY . .
-RUN turbo prune web --docker
+RUN turbo prune --scope=web --docker
 
 # Add lockfile and package.json's of isolated subworkspace
 FROM base AS installer
-RUN apk update
 RUN apk add --no-cache libc6-compat
+RUN apk update
 WORKDIR /app
 
 # First install the dependencies (as they change less often)
+COPY .gitignore .gitignore
 COPY --from=builder /app/out/json/ .
-COPY --from=builder /src/out/pnpm-lock.yaml ./pnpm-lock.yaml
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=pnpm-lock.yaml,target=pnpm-lock.yaml \
-    --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --prod --frozen-lockfile
+COPY --from=builder /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
+RUN pnpm install
 
 # Build the project
 COPY --from=builder /app/out/full/ .
+COPY turbo.json turbo.json
 
 # Uncomment and use build args to enable remote caching
 # ARG TURBO_TEAM
@@ -43,16 +41,19 @@ COPY --from=builder /app/out/full/ .
 # ARG TURBO_TOKEN
 # ENV TURBO_TOKEN=$TURBO_TOKEN
 
-COPY turbo.json turbo.json
-RUN pnpm turbo build --filter=web...
+RUN turbo run build --filter=web
 
-FROM base AS runner
+# use alpine as the thinest image
+FROM alpine AS runner
 WORKDIR /app
 
 # Don't run production as root
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 USER nextjs
+
+COPY --from=installer /app/apps/web/next.config.js .
+COPY --from=installer /app/apps/web/package.json .
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
