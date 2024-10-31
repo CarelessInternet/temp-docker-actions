@@ -3,13 +3,19 @@ FROM node:18-alpine AS base
 # This Dockerfile is copy-pasted into our main docs at /docs/handbook/deploying-with-docker.
 # Make sure you update both files!
 
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g pnpm@${PNPM_MAJOR_VERSION}
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
 FROM base AS builder
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk update
 RUN apk add --no-cache libc6-compat
+
 # Set working directory
 WORKDIR /app
-RUN yarn global add turbo
+RUN pnpm add -g turbo@${TURBO_MAJOR_VERSION}
 COPY . .
 RUN turbo prune web --docker
 
@@ -21,7 +27,11 @@ WORKDIR /app
 
 # First install the dependencies (as they change less often)
 COPY --from=builder /app/out/json/ .
-RUN yarn install
+COPY --from=builder /src/out/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=pnpm-lock.yaml,target=pnpm-lock.yaml \
+    --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --prod --frozen-lockfile
 
 # Build the project
 COPY --from=builder /app/out/full/ .
@@ -33,7 +43,8 @@ COPY --from=builder /app/out/full/ .
 # ARG TURBO_TOKEN
 # ENV TURBO_TOKEN=$TURBO_TOKEN
 
-RUN yarn turbo build --filter=web...
+COPY turbo.json turbo.json
+RUN pnpm turbo build --filter=web...
 
 FROM base AS runner
 WORKDIR /app
