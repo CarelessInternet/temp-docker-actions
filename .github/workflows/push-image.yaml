@@ -20,7 +20,7 @@ jobs:
         # Also make the environment variables lowercase (https://github.com/orgs/community/discussions/25768#discussioncomment-8057564).
         run: |
           echo "RELEASE_VERSION=${GITHUB_REF#refs/*/v}" >> ${GITHUB_ENV}
-          echo "IMAGE_NAME=${IMAGE_NAME_UPPERCASE}@L" >> ${GITHUB_ENV}
+          echo "IMAGE_NAME=${IMAGE_NAME_UPPERCASE@L}" >> ${GITHUB_ENV}
           echo "USERNAME=${USERNAME_UPPERCASE@L}" >> ${GITHUB_ENV}
       - name: Log in to the registry
         uses: docker/login-action@v3
