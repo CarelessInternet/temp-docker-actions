@@ -7,13 +7,18 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  USERNAME: ${{ github.repository_owner }}
 
 jobs:
   build_and_push:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Log in to the registry.
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.ACCESS_TOKEN }}
       - name: Set the version environment variable and make the environment variables lowercase.
         env:
           RAW_IMAGE_REPOSITORY: ${{ github.repository }}
@@ -23,13 +28,7 @@ jobs:
           RELEASE_VERSION=${GITHUB_REF#refs/*/v}
           IMAGE_REPOSITORY_WEBSITE=${RAW_IMAGE_REPOSITORY@L}-website
           echo "FULL_IMAGE_URL_WEBSITE=${REGISTRY}/$IMAGE_REPOSITORY_WEBSITE:$RELEASE_VERSION" >> ${GITHUB_ENV}
-      - name: Log in to the registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ env.USERNAME }}
-          password: ${{ secrets.ACCESS_TOKEN }}
-      - name: Build and push the web image.
+      - name: Build and push the website image.
         run: |
           docker build --file ./apps/web/Dockerfile . --no-cache --tag ${{ env.FULL_IMAGE_URL_WEBSITE }}
           docker push ${{ env.FULL_IMAGE_URL_WEBSITE }}
