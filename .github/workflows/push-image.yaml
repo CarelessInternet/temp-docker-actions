@@ -32,6 +32,8 @@ jobs:
           IMAGE_REPOSITORY_WEBSITE=${RAW_IMAGE_REPOSITORY@L}-website2
           echo "FULL_IMAGE_URL_WEBSITE=${REGISTRY}/$IMAGE_REPOSITORY_WEBSITE:$RELEASE_VERSION" >> ${GITHUB_ENV}
       - name: Build and push the website image.
+        env:
+          DOCKERFILE_ROUTE: ./apps/web/Dockerfile
         run: |
-          docker build --file ./apps/web/Dockerfile . --no-cache --tag ${{ env.FULL_IMAGE_URL_WEBSITE }}
+          docker build --file ${{ env.DOCKERFILE_ROUTE }} . --no-cache --tag ${{ env.FULL_IMAGE_URL_WEBSITE }}
           docker push ${{ env.FULL_IMAGE_URL_WEBSITE }}
