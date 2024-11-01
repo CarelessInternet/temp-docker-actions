@@ -11,6 +11,9 @@ env:
 jobs:
   build_and_push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - name: Log in to the registry.
@@ -18,7 +21,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.ACCESS_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set the version environment variable and make the environment variables lowercase.
         env:
           RAW_IMAGE_REPOSITORY: ${{ github.repository }}
