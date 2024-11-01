@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 export default function Web() {
 	console.log(`Private testing env: "${process.env.TESTING_ENV}"`);
 
